@@ -3,24 +3,32 @@ using Tarefas.Web.Models;
 using Tarefas.DTO;
 using Tarefas.DAO;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+
 
 namespace Tarefas.Web.Controllers
 {
+    [Authorize]
     public class TarefaController : Controller
     {
         private readonly ITarefaDAO _tarefaDAO;
 
         private readonly IMapper _mapper;
 
-        public TarefaController(ITarefaDAO tarefaDAO, IMapper mapper)
+        private readonly int _usuarioId;
+
+        public TarefaController(ITarefaDAO tarefaDAO, IMapper mapper, IHttpContextAccessor httpContextAccessor)
         {
             _tarefaDAO = tarefaDAO;
             _mapper = mapper;
+            _usuarioId = int.Parse(httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.PrimarySid));
         }
-        
+
+
         public IActionResult Details(int id)
-        {            
-            var tarefaDTO = _tarefaDAO.Consultar(id);
+        {
+            var tarefaDTO = _tarefaDAO.Consultar(id, _usuarioId);
 
             var TarefaViewModel = _mapper.Map<TarefaViewModel>(tarefaDTO);
 
@@ -28,11 +36,11 @@ namespace Tarefas.Web.Controllers
         }
 
         public IActionResult Index()
-        {   
+        {
             var listaDeTarefasDTO = _tarefaDAO.Consultar();
 
             var listaDeTarefa = new List<TarefaViewModel>();
-            
+
             foreach (var tarefaDTO in listaDeTarefasDTO)
             {
                 listaDeTarefa.Add(_mapper.Map<TarefaViewModel>(tarefaDTO));
@@ -43,13 +51,14 @@ namespace Tarefas.Web.Controllers
 
         public IActionResult Create()
         {
+            ViewBag.UsuarioId = _usuarioId;
             return View();
         }
 
         [HttpPost]
         public IActionResult Create(TarefaViewModel tarefaViewModel)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return View();
             }
@@ -61,16 +70,17 @@ namespace Tarefas.Web.Controllers
             return RedirectToAction("Index");
         }
 
+
         [HttpPost]
         public IActionResult Update(TarefaViewModel tarefaViewModel)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return View();
             }
-            
+
             var tarefaDTO = _mapper.Map<TarefaDTO>(tarefaViewModel);
-            
+
             _tarefaDAO.Atualizar(tarefaDTO);
 
             return RedirectToAction("Index");
